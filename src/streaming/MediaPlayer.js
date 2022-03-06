@@ -79,6 +79,7 @@ import URLUtils from '../streaming/utils/URLUtils';
 import BoxParser from './utils/BoxParser';
 import TextController from './text/TextController';
 
+
 /**
  * The media types
  * @typedef {("video" | "audio" | "text" | "image")} MediaType
@@ -157,7 +158,8 @@ function MediaPlayer() {
         segmentBaseController,
         licenseRequestFilters,
         licenseResponseFilters,
-        customCapabilitiesFilters;
+        customCapabilitiesFilters,
+        demoWorker;
 
     /*
     ---------------------------------------------------------------------------
@@ -184,6 +186,7 @@ function MediaPlayer() {
         licenseRequestFilters = [];
         licenseResponseFilters = [];
         customCapabilitiesFilters = [];
+
     }
 
     /**
@@ -250,6 +253,20 @@ function MediaPlayer() {
      * @instance
      */
     function initialize(view, source, AutoPlay) {
+        // create worker if video tag has worker attribute
+        if (view.hasAttribute('worker')) {
+        }
+
+        demoWorker = new Worker("../../src/demo-worker.js");
+        demoWorker.addEventListener('message', (event) => {
+            if (event.data.topic == "objectUrl") {
+                let vid = document.getElementById("secondVideo");
+                vid.src = event.data.arg;
+            } else if(event.data.topic == "mediaSourceOpen") {
+                // _onMediaSourceOpen();
+            }
+        });
+
         if (!capabilities) {
             capabilities = Capabilities(context).getInstance();
             capabilities.setConfig({
@@ -1683,7 +1700,8 @@ function MediaPlayer() {
             return;
         }
 
-        return thumbnailController.provide(s, callback);
+        const timeInPeriod = streamController.getTimeRelativeToStreamId(s, stream.getId());
+        return thumbnailController.provide(timeInPeriod, callback);
     }
 
     /*
@@ -2022,7 +2040,7 @@ function MediaPlayer() {
 
         // initialises controller
         abrController.initialize();
-        streamController.initialize(autoPlay, protectionData);
+        streamController.initialize(autoPlay, protectionData, demoWorker);
         textController.initialize();
         gapController.initialize();
         cmcdModel.initialize();

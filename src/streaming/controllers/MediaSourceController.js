@@ -43,8 +43,7 @@ function MediaSourceController() {
         logger = Debug(context).getInstance().getLogger(instance);
     }
 
-    function createMediaSource() {
-
+    function createMediaSource(worker) {
         let hasWebKit = ('WebKitMediaSource' in window);
         let hasMediaSource = ('MediaSource' in window);
 
@@ -52,6 +51,11 @@ function MediaSourceController() {
             mediaSource = new MediaSource();
         } else if (hasWebKit) {
             mediaSource = new WebKitMediaSource();
+        }
+
+        // instruct worker to create the MediaSource
+        if (typeof worker != 'undefined') {
+            worker.postMessage({topic: "createMediaSource"});
         }
 
         return mediaSource;

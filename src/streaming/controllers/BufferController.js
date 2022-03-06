@@ -63,6 +63,7 @@ function BufferController(config) {
     const streamInfo = config.streamInfo;
     const type = config.type;
     const settings = config.settings;
+    let demoWorker = config.demoWorker;
 
     let instance,
         logger,
@@ -168,7 +169,8 @@ function BufferController(config) {
             sourceBufferSink = SourceBufferSink(context).create({
                 mediaSource,
                 textController,
-                eventBus
+                eventBus,
+                demoWorker
             });
             _initializeSink(mediaInfo, oldBufferSinks, requiredQuality)
                 .then(() => {

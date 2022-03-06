@@ -71,6 +71,7 @@ function Stream(config) {
     const videoModel = config.videoModel;
     let streamInfo = config.streamInfo;
     const settings = config.settings;
+    let demoWorker = config.demoWorker;
 
 
     let instance,
@@ -455,7 +456,8 @@ function Stream(config) {
             errHandler,
             settings,
             boxParser,
-            segmentBlacklistController
+            segmentBlacklistController,
+            demoWorker
         });
 
         streamProcessor.initialize(mediaSource, hasVideoTrack, isFragmented);

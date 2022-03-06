@@ -74,6 +74,7 @@ function StreamProcessor(config) {
     let settings = config.settings;
     let boxParser = config.boxParser;
     let segmentBlacklistController = config.segmentBlacklistController;
+    let demoWorker = config.demoWorker;
 
     let instance,
         logger,
@@ -1145,7 +1146,8 @@ function StreamProcessor(config) {
                 textController,
                 abrController,
                 playbackController,
-                settings
+                settings,
+                demoWorker
             });
         }
 

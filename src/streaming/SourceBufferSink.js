@@ -53,6 +53,7 @@ function SourceBufferSink(config) {
     const settings = Settings(context).getInstance();
     const textController = config.textController;
     const eventBus = config.eventBus;
+    let demoWorker = config.demoWorker;
 
     let instance,
         type,
@@ -119,7 +120,9 @@ function SourceBufferSink(config) {
             if (codec.match(/application\/mp4;\s*codecs="(stpp|wvtt).*"/i)) {
                 return _initializeForText(streamInfo);
             }
-
+            if (typeof demoWorker != 'undefined') {
+                demoWorker.postMessage({topic: "addSourceBuffer", codec: codec});
+            }
             buffer = mediaSource.addSourceBuffer(codec);
 
             _addEventListeners();
@@ -376,8 +379,14 @@ function SourceBufferSink(config) {
                     afterSuccess.call(this);
                 } else {
                     if (buffer.appendBuffer) {
+                        if (typeof demoWorker != 'undefined') {
+                            demoWorker.postMessage({topic: "appendBuffer", nextChunk: new Uint8Array(nextChunk.data.bytes), type: mediaInfo.type});
+                        }
                         buffer.appendBuffer(nextChunk.data.bytes);
                     } else {
+                        if (typeof demoWorker != 'undefined') {
+                            demoWorker.postMessage({topic: "appendBuffer", nextChunk: nextChunk.data.bytes});
+                        }
                         buffer.append(nextChunk.data.bytes, nextChunk.data);
                     }
                     // updating is in progress, we should wait for it to complete before signaling that this operation is done

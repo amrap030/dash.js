@@ -101,7 +101,8 @@ function StreamController() {
         settings,
         firstLicenseIsFetched,
         waitForPlaybackStartTimeout,
-        errorInformation;
+        errorInformation,
+        demoWorker;
 
     function setup() {
         logger = Debug(context).getInstance().getLogger(instance);
@@ -113,7 +114,8 @@ function StreamController() {
         resetInitialSettings();
     }
 
-    function initialize(autoPl, protData) {
+    function initialize(autoPl, protData, worker) {
+        demoWorker = worker;
         _checkConfig();
 
         autoPlay = autoPl;
@@ -305,7 +307,8 @@ function StreamController() {
                 protectionController,
                 videoModel,
                 streamInfo,
-                settings
+                settings,
+                demoWorker
             });
             streams.push(stream);
             stream.initialize();
@@ -428,6 +431,16 @@ function StreamController() {
         }
 
         function _open() {
+            /*
+            demoWorker.addEventListener('message', (event) => {
+                if (event.data.topic == "objectUrl") {
+                    let vid = document.getElementById("secondVideo");
+                    vid.src = event.data.arg;
+                } else if(event.data.topic == "mediaSourceOpen") {
+                    // _onMediaSourceOpen();
+                }
+            });
+            */
             mediaSource.addEventListener('sourceopen', _onMediaSourceOpen, false);
             mediaSource.addEventListener('webkitsourceopen', _onMediaSourceOpen, false);
             sourceUrl = mediaSourceController.attachMediaSource(videoModel);
@@ -435,7 +448,7 @@ function StreamController() {
         }
 
         if (!mediaSource) {
-            mediaSource = mediaSourceController.createMediaSource();
+            mediaSource = mediaSourceController.createMediaSource(demoWorker);
             _open();
         } else {
             if (keepBuffers) {

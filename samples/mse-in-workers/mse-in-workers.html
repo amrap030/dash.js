@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Main thread blocking demo</title>
+
+    <script src="../../dist/dash.all.debug.js"></script>
+
+    <!-- Bootstrap core CSS -->
+    <link href="../lib/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="../lib/main.css" rel="stylesheet">
+
+    <style>
+        video {
+            width: 640px;
+            height: 360px;
+        }
+        
+        .label-container {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2em;
+        }
+        .col-md-8 {
+            max-width: 760px;
+        }
+    </style>
+    
+    <script id="monitorWorker" type="javascript/worker">
+        setInterval(() => {
+            self.postMessage(undefined);
+        }, 100);
+    </script>
+
+    <script class="code">
+        let workerVideo;
+        let workerStartTimeReal;
+        let workerStartTimeVideo;
+        let workerLag = 0;
+        
+        let mainVideo;
+        let mainStartTimeReal;
+        let mainStartTimeVideo;
+        let mainLag = 0;
+        
+        
+        /* SIDE EFFECTS! */
+        function computeLag() {
+            if (workerStartTimeReal !== undefined && workerStartTimeVideo !== undefined) {
+                const addedLag = (Date.now() - workerStartTimeReal) - (workerVideo.currentTime - workerStartTimeVideo) * 1000;
+                workerLag += Math.max(0, addedLag);
+                workerStartTimeVideo = workerVideo.currentTime;
+                workerStartTimeReal = Date.now();
+            }
+            if (mainStartTimeReal !== undefined && mainStartTimeVideo !== undefined) {
+                const addedLag = (Date.now() - mainStartTimeReal) - (mainVideo.currentTime - mainStartTimeVideo) * 1000;
+                mainLag += Math.max(0, addedLag);
+                mainStartTimeVideo = mainVideo.currentTime;
+                mainStartTimeReal = Date.now();
+            }
+        }
+        
+        function initVideo(videoElement, setStartTimeVideo, setStartTimeReal) {
+            videoElement.addEventListener("play", function() {
+                setStartTimeVideo(videoElement.currentTime);
+                setStartTimeReal(Date.now());
+            });
+            videoElement.addEventListener("pause", function () {
+                computeLag();
+                setStartTimeVideo(videoElement.currentTime);
+                setStartTimeReal(Date.now());
+            })
+
+            if (videoElement.id == "mse-in-main") {
+                const player = dashjs.MediaPlayer().create();
+                const url = "https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd";
+                player.initialize(videoElement, url, true);
+            }
+        }
+        
+        function initLagComputation(setMainLagText, setWorkerLagText) {
+            const blob = new Blob(
+                [document.querySelector("#monitorWorker").textContent],
+                { type: "text/javascript" }
+            );
+            const worker = new Worker(window.URL.createObjectURL(blob));
+            worker.onmessage = function() {
+                setMainLagText(`${Math.floor(mainLag / 1000)}s ${(mainLag % 1000).toFixed(0)}ms`);
+                setWorkerLagText(`${Math.floor(workerLag / 1000)}s ${(workerLag % 1000).toFixed(0)}ms`);
+            };
+        }
+        
+        function getBusyTime() {
+            return document.querySelector('input[name=busy-time]:checked').value;
+        }
+        function getNonBusyTime() {
+            return document.querySelector('input[name=non-busy-time]:checked').value;
+        }
+        
+        function blockMain() {
+            const startTime = performance.now();
+            console.log(getBusyTime());
+            
+            while (!workerVideo.paused && performance.now() - startTime < getBusyTime() * 1000) {}
+            
+            if (!workerVideo.paused) {
+                setTimeout(() => blockMain(), getNonBusyTime());
+            }
+        }
+        
+        function onPlayWorker() {
+            mainVideo.play();
+            blockMain();
+        }
+        function onPlayMain() {
+            workerVideo.play();
+            blockMain();
+        }
+        function onPauseMain() {
+            workerVideo.pause();
+        }
+        function onPauseWorker() {
+            mainVideo.pause();
+        }
+    </script>
+</head>
+<body>
+
+<main>
+    <div class="container py-4">
+        <header class="pb-3 mb-4 border-bottom">
+            <img class=""
+                 src="../lib/img/dashjs-logo.png"
+                 width="200">
+        </header>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="row-cols-md-12">
+                    <div class="h-100 p-5 bg-light border rounded-3">
+                        <h3>Busy wait demo</h3>
+                        <p>This demo has the main thread busy while fetching and buffering a video with dash.js</p>
+                    </div>
+                </div>
+                <div class="row-cols-md-12">
+                    <div class="h-100 p-5 mt-2 bg-light border rounded-3">
+                        <p>Choose the busy time below:</p>
+                        <div class="label-container">
+                            <label><input type="radio" name="busy-time" value="0.05"> 50ms</label>
+                            <label><input type="radio" name="busy-time" value="0.1"> 100ms</label>
+                            <label><input type="radio" name="busy-time" checked value="0.2"> 200ms</label>
+                            <label><input type="radio" name="busy-time" value="0.4"> 400ms</label>
+                            <label><input type="radio" name="busy-time" value="0.8"> 800ms</label>
+                            <label><input type="radio" name="busy-time" value="1.6"> 1600ms</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="row-cols-md-12">
+                    <div class="h-100 p-5 mt-2 bg-light border rounded-3">
+                        <p>Choose the busy restart delay below:</p>
+                        <div class="label-container">
+                            <label><input type="radio" name="non-busy-time" value="0.0"> 0.0s</label>
+                            <label><input type="radio" name="non-busy-time" checked value="0.1"> 0.1s</label>
+                            <label><input type="radio" name="non-busy-time" value="0.25"> 0.25s</label>
+                            <label><input type="radio" name="non-busy-time" value="0.5"> 0.5s</label>
+                            <label><input type="radio" name="non-busy-time" value="1.0"> 1.0s</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="row-cols-md-12">
+                    <div class="p-5 mt-2 bg-light border rounded-3">
+                        <p>Lagging behind:</p>
+                        <p class="p-1" id="time-indicator-noworker"></p>
+                        <p class="p-1" id="time-indicator-worker"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-8">
+                <div class="row-cols-md-12">
+                    MSE in Main-Thread
+                    <video data-dashjs-player worker onplay="onPlayMain()"
+                               src="https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd" id="mse-in-main" controls="true" autoplay></video>
+                </div>
+                <br>
+                <br>
+                <div class="row-cols-md-12">
+                    MSE in worker
+                    <video controls onplay="onPlayWorker()" id="mse-in-worker" autoplay></video>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-12">
+                <div id="code-output"></div>
+            </div>
+        </div>
+        <!-- footer class="pt-3 mt-4 text-muted border-top">
+            &copy; DASH-IF
+        </footer -->
+    </div>
+</main>
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        mainVideo = document.querySelector("#mse-in-main");
+        workerVideo = document.querySelector("#mse-in-worker");
+        
+        initVideo(
+            mainVideo,
+            (x) => workerStartTimeVideo = x,
+            (x) => workerStartTimeReal = x
+        );
+        initVideo(
+            workerVideo,
+            (x) => mainStartTimeVideo = x,
+            (x) => mainStartTimeReal = x
+        );
+        
+        initLagComputation(
+            (txt) => document.querySelector("#time-indicator-noworker").textContent = `Without worker (top): ${txt}`,
+            (txt) => document.querySelector("#time-indicator-worker").textContent = `With worker (bottom): ${txt}`
+        );
+    });
+</script>
+<script src="../highlighter.js"></script>
+</body>
+</html>
